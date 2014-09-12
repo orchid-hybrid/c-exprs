@@ -8,7 +8,9 @@
 (define-syntax check-output?
   (syntax-rules ()
     ((check-output? <action> <expected> <message>)
-     (check-equal? (with-output-to-string (lambda () <action>)) <expected> <message>))))
+     (check-equal? (with-output-to-string (lambda () <action>)) <expected> <message>))
+    ((check-output? <action> <expected>)
+     (check-equal? (with-output-to-string (lambda () <action>)) <expected>))))
 
 (define (hello-world) (display "Hello world!"))
 

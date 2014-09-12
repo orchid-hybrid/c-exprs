@@ -2,6 +2,14 @@
 
 (require "../tools/pattern-matcher.rkt")
 
+(provide c-def c-def?
+         c-type c-type?
+         c-stmt c-stmt?
+         c-operator c-operator?
+         c-expr c-expr?
+         
+         display-c-type)
+
 (define-language c-def c-def?
   ;; unions etc.
   (definition `(define (,c-type? ,symbol? (,c-type? ,symbol?) ...) ,c-stmt?)))
