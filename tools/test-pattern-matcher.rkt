@@ -37,3 +37,12 @@
   (check-equal? (pattern? `(yeah ((ok ,symbol?) ...)) '(yeah ((ok kid) (ok kid) (ok dude) (ok buddy))))
                 '(((kid) (kid) (dude) (buddy))))
   )
+
+
+(define-language foo foo?
+  (a 'a)
+  (b 'b))
+
+(define (bar x) (match-language foo x
+                  (a => (lambda () (display 'a)))
+                  (b => (lambda () (display 'b)))))

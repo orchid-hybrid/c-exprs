@@ -4,6 +4,7 @@
          language-pattern-names language-patterns define-language match-language)
 
 (require racket/set)
+(require (for-syntax racket/set))
 (require srfi/1)
 
 (define (pattern? p e)
@@ -46,23 +47,29 @@
   (syntax-rules ()
     ((_ <language> <language?> (<name> <pattern>) ...)
      (begin
+       (begin-for-syntax (define <language> `(<name> ...)))
        (define (<language>) `((<name> ,<pattern>) ...))
        (define (<language?> t)
          (if (any (lambda (pattern) (pattern? pattern t)) `(,<pattern> ...))
              #t #f))))))
 
 (define-syntax match-language
-  (syntax-rules (=>)
-    ((_ <language> <exp> (<name> => <k>) ...)
-     (begin
-       (let* ((lang (<language>))
-              (missing-clauses (set-subtract (language-pattern-names lang) (list '<name> ...)))
-              (extra-clauses (set-subtract (list '<name> ...) (language-pattern-names lang))))
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ <language> <exp> . <rules>)
+       (let* ((lang (eval #'<language>))
+              (missing-clauses (set-subtract lang (map car (syntax->datum #'<rules>))))
+              (extra-clauses (set-subtract (map car (syntax->datum #'<rules>)) lang)))
          (if (not (null? missing-clauses))
              (error "Missing clauses in pattern match for language " '<language> ': missing-clauses)
              (when (not (null? extra-clauses))
                (error "Extra clauses in pattern match for language " '<language> ': extra-clauses))))
-       (let ((e <exp>))
-         (match e
-           ((second (assoc '<name> (<language>))) => <k>) ...
-           (else (error "Pattern match failed for " '<language> "with" e))))))))
+       #'(match-language-aux <language> <exp> . <rules>)))))
+
+(define-syntax match-language-aux
+  (syntax-rules (=>)
+    ((_ <language> <exp> (<name> => <k>) ...)
+     (let ((e <exp>))
+       (match e
+         ((second (assoc '<name> (<language>))) => <k>) ...
+         (else (error "Pattern match failed for " '<language> "with" e)))))))
