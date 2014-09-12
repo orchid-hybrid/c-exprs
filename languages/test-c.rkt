@@ -10,4 +10,3 @@
   (check-output? (display-c-type 'char) "char")
   (check-output? (display-c-type '(* int)) "int*")
   (check-output? (display-c-type '(* (* char))) "char**"))
-

@@ -27,7 +27,7 @@
   (char `char))
 
 (define-language c-stmt c-stmt?
-  ;(begin `(begin ,c-stmt? ...))
+  (begin `(begin ,c-stmt? ...))
   (if `(if ,c-expr? ,c-stmt? ,c-stmt?))
   (while `(while ,c-expr? ,c-stmt?))
   (do-while `(do-while ,c-stmt? ,c-expr?))
@@ -42,8 +42,8 @@
 (define-language c-expr c-expr?
   (var symbol?)
   (num number?)
-  (op `(,c-operator ,c-expr ,c-expr))
-  (deref `(* ,c-expr)))
+  (op `(,c-operator? ,c-expr? ,c-expr?))
+  (deref `(* ,c-expr?)))
 
 (define (display-c-type t)
   (match-language c-type t
@@ -72,7 +72,7 @@
                     (display (spaces (* i tabstop)))
                     (display s))))
   (match-language c-stmt s
-    ;(begin => (lambda (b) (display "begin ") (display-c-expr b)))
+    (begin => (lambda bs (for-each (lambda (b) (display-c-stmt (first b) i) (newline)) bs)))
     (if => (lambda (c p q)
              (display_ "if (")
              (display-c-expr c)

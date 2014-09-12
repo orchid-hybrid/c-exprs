@@ -13,11 +13,23 @@
         ((procedure? p) (if (p e) (list e) #f))
         ((pair? p) (if (pair? e)
                        (let ((lhs (pattern? (car p) (car e))))
-                         (if lhs (let ((rhs (pattern? (cdr p) (cdr e))))
-                                   (if rhs (append lhs rhs)
-                                       #f)) #f))
+                         (if (equal? '(...) (cdr p))
+                             (pattern* (car p) (cdr e) (list lhs))
+                             (if lhs (let ((rhs (pattern? (cdr p) (cdr e))))
+                                       (if rhs (append lhs rhs)
+                                           #f)) #f)))
                        #f))
         (else (error "bad pattern"))))
+
+(define (pattern* p e acc)
+  (if (null? e)
+      (reverse acc)
+      (if (pair? e)
+          (let ((next (pattern? p (car e))))
+            (if next
+                (pattern* p (cdr e) (cons next acc))
+                #f))
+          #f)))
 
 (define (apply-list-to f) (lambda (l) (apply f l)))
 

@@ -1,7 +1,6 @@
 #lang racket
 
 (require rackunit)
-(require rackunit/log)
 
 (provide check-output?)
 
