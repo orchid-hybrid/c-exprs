@@ -2,24 +2,28 @@
 
 (require "../tools/pattern-matcher.rkt")
 
-(provide c-def c-def?
+(provide c-decl c-decl?
          c-type c-type?
          c-stmt c-stmt?
          c-operator c-operator?
          c-expr c-expr?
          
-         display-c-type)
+         display-c-decl
+         display-c-type
+         display-c-stmt
+         display-c-operator
+         display-c-expr)
 
 (define tabstop 4)
+(define (spaces n) (build-string n (lambda (_) #\space)))
 
 (define (inc n) (+ n 1))
 
-(define (spaces n)
-  (build-string n (lambda (_) #\space)))
+;; C related language definitions
 
-(define-language c-def c-def?
+(define-language c-decl c-decl?
   ;; unions etc.
-  (definition `(define (,c-type? ,symbol? (,c-type? ,symbol?) ...) ,c-stmt?)))
+  (definition `(define (,c-type? ,symbol? (,c-type? ,symbol?) ...) ,c-stmt? ...)))
 
 (define-language c-type c-type?
   (pointer `(* ,c-type?))
@@ -45,11 +49,30 @@
   (op `(,c-operator? ,c-expr? ,c-expr?))
   (deref `(* ,c-expr?)))
 
+;; C language display functions
+
+(define (display-c-decl d)
+  (match-language c-decl d
+    (definition => (lambda (ret-type name args body)
+                     (display-c-type ret-type) (display " ") (display name) (display "(")
+                     (display "...")
+                     (display ") {") (newline)
+                     (for-each (lambda (b) (display-c-stmt (first b) 1)) body)
+                     (display "}") (newline)
+                     (newline)))))
+
 (define (display-c-type t)
   (match-language c-type t
     (pointer => (lambda (p) (display-c-type p) (display "*")))
     (int => (lambda () (display "int")))
     (char => (lambda () (display "char")))))
+
+(define (display-c-operator o)
+  (match-language c-operator o
+    (add => (lambda () (display "+")))
+    (sub => (lambda () (display "-")))
+    (mul => (lambda () (display "*")))
+    (div => (lambda () (display "/")))))
 
 (define (display-c-expr e)
   (match-language c-expr e
@@ -84,15 +107,16 @@
              (newline)
              (display-c-stmt q (inc i))
              (newline)
-             (display_ "}")))
+             (display_ "}")
+             (newline)))
     (while => (lambda (c s)
                 (display_ "while (")
                 (display-c-expr c)
                 (display ") {")
                 (newline)
                 (display-c-stmt s (inc i))
-                (newline)
-                (display_ "}")))
+                (display_ "}")
+                (newline)))
     (do-while => (lambda (s c)
                    (display_ "do {")
                    (newline)
@@ -100,14 +124,18 @@
                    (newline)
                    (display_ "} while (")
                    (display-c-expr c)
-                   (display ");")))
+                   (display ");")
+                   (newline)))
     (return => (lambda ()
                  (display_ "return;")))
     (return-value => (lambda (v)
                        (display_ "return (")
                        (display-c-expr v)
-                       (display ");")))
+                       (display ");")
+                       (newline)))
     (break => (lambda ()
-                (display_ "break;")))
+                (display_ "break;")
+                (newline)))
     (continue => (lambda ()
-                   (display_ "continue;"))))))
+                   (display_ "continue;")
+                   (newline))))))

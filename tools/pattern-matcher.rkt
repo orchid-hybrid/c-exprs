@@ -23,7 +23,7 @@
 
 (define (pattern* p e acc)
   (if (null? e)
-      (reverse acc)
+      (list (reverse acc))
       (if (pair? e)
           (let ((next (pattern? p (car e))))
             (if next
