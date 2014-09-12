@@ -3,6 +3,7 @@
 (require "../tools/pattern-matcher.rkt")
 
 (define-language c-def c-def?
+  ;; unions etc.
   (definition `(define (,c-type? ,symbol? (,c-type? ,symbol?) ...) ,c-stmt?)))
 
 (define-language c-type c-type?
@@ -10,15 +11,27 @@
   (int `int)
   (char `char))
 
-(define-language lambda-calculus lambda-calculus?
-  (int number?)
+(define-language c-stmt c-stmt?
+  (begin `(begin ,c-stmt? ...))
+  (if `(if ,c-expr? ,c-stmt? ,c-stmt?))
+  (while `(while ,c-expr? ,c-stmt?))
+  (do-while `(do-while ,c-stmt? ,c-expr?))
+  (return `(return))
+  (return-value `(return ,c-expr?))
+  (break `(break))
+  (continue `(continue)))
+
+(define-language c-operator c-operator?
+  (add `+) (sub `-) (mul `*) (div `/))
+
+(define-language c-expr c-expr?
   (var symbol?)
-  (lambda `(lambda (_) _))
-  (app `(_ _)))
+  (num number?)
+  (op `(,c-operator ,c-expr ,c-expr))
+  (deref `(* ,c-expr)))
 
-(match-language lambda-calculus exp
-  (int => (lambda () 1))
-  (var => (lambda () 1))
-  (lambda => (lambda (param body) 1))
-  (app => (lambda (fn arg) 1)))
-
+(define (display-c-type t)
+  (match-language c-type t
+    (pointer => (lambda (p) (display-c-type p) (display "*")))
+    (int => (lambda () (display "int")))
+    (char => (lambda () (display "char")))))

@@ -50,5 +50,7 @@
              (error "Missing clauses in pattern match for language " '<language> ': missing-clauses)
              (when (not (null? extra-clauses))
                (error "Extra clauses in pattern match for language " '<language> ': extra-clauses))))
-       (match <exp>
-         ((assoc '<name> (<language>)) => <k>) ...)))))
+       (let ((e <exp>))
+         (match e
+           ((second (assoc '<name> (<language>))) => <k>) ...
+           (else (error "Pattern match failed for " '<language> "with" e))))))))
