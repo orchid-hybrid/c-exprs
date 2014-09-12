@@ -29,11 +29,11 @@
   (check-equal? (pattern? '(lambda (_) _) '(lambda (y) y y y)) #f)
   
   ;; ...
-  (check-equal? (pattern? '(_ ...) '(a)) '((a)))
-  (check-equal? (pattern? '(_ ...) '(a b)) '((a) (b)))
-  (check-equal? (pattern? '(_ ...) '(a b c)) '((a) (b) (c)))
-  (check-equal? (pattern? `(,symbol? ...) '(a b c)) '((a) (b) (c)))
+  (check-equal? (pattern? '(_ ...) '(a)) '(((a))))
+  (check-equal? (pattern? '(_ ...) '(a b)) '(((a) (b))))
+  (check-equal? (pattern? '(_ ...) '(a b c)) '(((a) (b) (c))))
+  (check-equal? (pattern? `(,symbol? ...) '(a b c)) '(((a) (b) (c))))
   (check-equal? (pattern? `(,symbol? ...) '(a b 3 c)) #f)
   (check-equal? (pattern? `(yeah ((ok ,symbol?) ...)) '(yeah ((ok kid) (ok kid) (ok dude) (ok buddy))))
-                '((kid) (kid) (dude) (buddy)))
+                '(((kid) (kid) (dude) (buddy))))
   )

@@ -18,4 +18,40 @@
     break;
 }
 
+")
+  (check-output? (display-c-stmt
+                  '(while q
+                          (if x
+                              (if y
+                                  (break)
+                                  (while (+ 1 2)
+                                         (while i
+                                                (do-while
+                                                 (break)
+                                                 asdf))))
+                              (if z
+                                  (continue)
+                                  (return))))
+                  0)
+                 "while (q) {
+    if (x) {
+        if (y) {
+            break;
+        } else {
+            while (1 + 2) {
+                while (i) {
+                    do {
+                        break;
+                    } while (asdf);
+                }
+            }
+        }
+    } else {
+        if (z) {
+            continue;
+        } else {
+            return;
+        }
+    }
+}
 "))
