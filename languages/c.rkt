@@ -14,6 +14,9 @@
          display-c-operator
          display-c-expr)
 
+;; Useful links
+;; * C syntax BNF: http://www.cs.man.ac.uk/~pjj/bnf/c_syntax.bnf
+
 (define tabstop 4)
 (define (spaces n) (build-string n (lambda (_) #\space)))
 
@@ -28,8 +31,12 @@
 
 (define-language c-type c-type?
   (pointer `(* ,c-type?))
+  (void `void)
+  (char `char)
   (int `int)
-  (char `char))
+  (long-long-int `long-long-int)
+  (float `float)
+  (double `double))
 
 (define-language c-stmt c-stmt?
   (begin `(begin ,c-stmt? ...))
@@ -42,7 +49,9 @@
   (continue `(continue)))
 
 (define-language c-operator c-operator?
-  (add `+) (sub `-) (mul `*) (div `/))
+  (add `+) (sub `-) (mul `*) (div `/)
+  (bit-and `&) (bit-or `\|) (bit-xor `^)
+  (and `&&) (or `\|\|))
 
 (define-language c-expr c-expr?
   (var symbol?)
@@ -51,6 +60,15 @@
   (deref `(* ,c-expr?)))
 
 ;; C language display functions
+
+(define (for-each-between f comma list)
+  (if (null? list)
+      #t
+      (if (null? (cdr list))
+          (f (car list))
+          (begin (f (car list))
+                 (comma)
+                 (for-each-between f comma (cdr list))))))
 
 (define (display-c-decl d)
   (match-language c-decl d
@@ -61,7 +79,13 @@
                   (newline)))
     (definition => (lambda (ret-type name args body)
                      (display-c-type ret-type) (display " ") (display name) (display "(")
-                     (display "...")
+                     (for-each-between (lambda (sig)
+                                         (display-c-type (first sig))
+                                         (display " ")
+                                         (display (second sig)))
+                                       (lambda ()
+                                         (display ", "))
+                                       args)
                      (display ") {") (newline)
                      (for-each (lambda (b) (display-c-stmt (first b) 1)) body)
                      (display "}") (newline)
@@ -69,16 +93,28 @@
 
 (define (display-c-type t)
   (match-language c-type t
+    (void => (lambda () (display "void")))
     (pointer => (lambda (p) (display-c-type p) (display "*")))
+    (char => (lambda () (display "char")))
     (int => (lambda () (display "int")))
-    (char => (lambda () (display "char")))))
+    (long-long-int => (lambda () (display "long long int")))
+    (float => (lambda () (display "float")))
+    (double => (lambda () (display "double")))
+    ))
 
 (define (display-c-operator o)
   (match-language c-operator o
     (add => (lambda () (display "+")))
     (sub => (lambda () (display "-")))
     (mul => (lambda () (display "*")))
-    (div => (lambda () (display "/")))))
+    (div => (lambda () (display "/")))
+    
+    (bit-and => (lambda () (display "&")))
+    (bit-or => (lambda () (display "|")))
+    (bit-xor => (lambda () (display "^")))
+    (and => (lambda () (display "&&")))
+    (or => (lambda () (display "||")))
+    ))
 
 (define (display-c-expr e)
   (match-language c-expr e
@@ -101,7 +137,7 @@
                     (display (spaces (* i tabstop)))
                     (display s))))
   (match-language c-stmt s
-    (begin => (lambda bs (for-each (lambda (b) (display-c-stmt (first b) i) (newline)) bs)))
+    (begin => (lambda bs (for-each (lambda (b) (display-c-stmt (first b) i)) (first bs))))
     (if => (lambda (c p q)
              (display_ "if (")
              (display-c-expr c)

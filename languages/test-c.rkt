@@ -11,8 +11,8 @@
   (check-output? (display-c-type '(* int)) "int*")
   (check-output? (display-c-type '(* (* char))) "char**")
   
-  (check-output? (display-c-decl '(define (int main (int argv) ((* (* char)) argv)) (break) (break) (break)))
-               "int main(...) {
+  (check-output? (display-c-decl '(define (int main (int argc) ((* (* char)) argv)) (break) (break) (break)))
+               "int main(int argc, char** argv) {
     break;
     break;
     break;
@@ -55,4 +55,11 @@
     }
 }
 ")
-  (check-output? (display-c-decl '(include "stdlib.h")) "#include \"stdlib.h\"\n"))
+  (check-output? (display-c-decl '(include "stdlib.h")) "#include \"stdlib.h\"\n")
+  (check-output? (display-c-decl '(define (void moo (long-long-int x) ((* (* void)) h) (char c1) (char c2)) (begin (break) (break))))
+                 "void moo(long long int x, void** h, char c1, char c2) {
+    break;
+    break;
+}
+
+"))
