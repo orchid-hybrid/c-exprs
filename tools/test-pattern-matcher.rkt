@@ -36,6 +36,11 @@
   (check-equal? (pattern? `(,symbol? ...) '(a b 3 c)) #f)
   (check-equal? (pattern? `(yeah ((ok ,symbol?) ...)) '(yeah ((ok kid) (ok kid) (ok dude) (ok buddy))))
                 '(((kid) (kid) (dude) (buddy))))
+  
+  ;; making sure the ... bug is fixed
+  (check-equal? (pattern? '(x y ...) '(x y y y)) '((() () ())))
+  (check-equal? (pattern? '(x y ...) '(x z z z)) #f)
+  (check-equal? (pattern? '(x y ...) '(x (y y y))) #f)
   )
 
 
