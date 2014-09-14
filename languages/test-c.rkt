@@ -62,4 +62,6 @@
     break;
 }
 
+")
+  (check-output? (display-c-stmt '(set! (* hello) (+ 3 (& a))) 0) "*hello = 3 + &a;
 "))

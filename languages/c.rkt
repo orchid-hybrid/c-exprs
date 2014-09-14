@@ -40,6 +40,7 @@
 
 (define-language c-stmt c-stmt?
   (begin `(begin ,c-stmt? ...))
+  (assign `(set! ,c-lvalue? ,c-expr?))
   (if `(if ,c-expr? ,c-stmt? ,c-stmt?))
   (while `(while ,c-expr? ,c-stmt?))
   (do-while `(do-while ,c-stmt? ,c-expr?))
@@ -57,7 +58,13 @@
   (var symbol?)
   (num number?)
   (op `(,c-operator? ,c-expr? ,c-expr?))
+  (ref `(& ,symbol?))
   (deref `(* ,c-expr?)))
+
+(define-language c-lvalue c-lvalue?
+  (var symbol?)
+  (deref `(* ,symbol?))
+  (array-ref `(array-ref ,symbol? ,c-expr?)))
 
 ;; C language display functions
 
@@ -123,14 +130,30 @@
     (num => (lambda (n)
               (display n)))
     (op => (lambda (o p q)
-             (display p)
+             (display-c-expr p)
              (display " ")
-             (display o)
+             (display-c-operator o)
              (display " ")
-             (display q)))
+             (display-c-expr q)))
+    (ref => (lambda (e)
+                (display "&")
+                (display e)))
     (deref => (lambda (e)
                 (display "*")
                 (display e)))))
+
+(define (display-c-lvalue v)
+  (match-language c-lvalue v
+    (var => (lambda (v)
+              (display v)))
+    (deref => (lambda (v)
+                (display "*")
+                (display v)))
+    (array-ref => (lambda (a i)
+                    (display a)
+                    (display "[")
+                    (display-c-expr i)
+                    (display "]")))))
 
 (define (display-c-stmt s i)
   (let ((display_ (lambda (s)
@@ -138,6 +161,13 @@
                     (display s))))
   (match-language c-stmt s
     (begin => (lambda bs (for-each (lambda (b) (display-c-stmt (first b) i)) (first bs))))
+    (assign => (lambda (lhs rhs)
+                 (display_ "")
+                 (display-c-lvalue lhs)
+                 (display " = ")
+                 (display-c-expr rhs)
+                 (display ";")
+                 (newline)))
     (if => (lambda (c p q)
              (display_ "if (")
              (display-c-expr c)
