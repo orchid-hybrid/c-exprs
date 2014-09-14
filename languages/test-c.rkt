@@ -54,4 +54,5 @@
         }
     }
 }
-"))
+")
+  (check-output? (display-c-decl '(include "stdlib.h")) "#include \"stdlib.h\"\n"))

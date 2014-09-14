@@ -23,6 +23,7 @@
 
 (define-language c-decl c-decl?
   ;; unions etc.
+  (include `(include ,string?))
   (definition `(define (,c-type? ,symbol? (,c-type? ,symbol?) ...) ,c-stmt? ...)))
 
 (define-language c-type c-type?
@@ -53,6 +54,11 @@
 
 (define (display-c-decl d)
   (match-language c-decl d
+    (include => (lambda (filename)
+                  (display "#include \"")
+                  (display filename)
+                  (display "\"")
+                  (newline)))
     (definition => (lambda (ret-type name args body)
                      (display-c-type ret-type) (display " ") (display name) (display "(")
                      (display "...")
