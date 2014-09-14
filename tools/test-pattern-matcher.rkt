@@ -48,6 +48,14 @@
   (a 'a)
   (b 'b))
 
-(define (bar x) (match-language foo x
-                  (a => (lambda () (display 'a)))
-                  (b => (lambda () (display 'b)))))
+(define-language bar bar?
+  (x 'x)
+  (y 'y))
+
+(define (foo-bar x) (match-language foo x
+                      (a => (lambda () (display 'a)))
+                      (b => (lambda () (display 'b)))))
+
+(define (foo-baz x) (match-language (foo -> bar?) x
+                      (b => (lambda () 'y))
+                      (a => (lambda () 'z))))

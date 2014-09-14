@@ -56,18 +56,31 @@
          (if (any (lambda (pattern) (pattern? pattern t)) `(,<pattern> ...))
              #t #f))))))
 
+(begin-for-syntax
+  (define (match-language-verify lang lang-symbol pattern-names)
+    (let* ((missing-clauses (set-subtract lang pattern-names))
+           (extra-clauses (set-subtract pattern-names lang)))
+      (if (not (null? missing-clauses))
+          (error "Missing clauses in pattern match for language " lang-symbol ': missing-clauses)
+          (when (not (null? extra-clauses))
+            (error "Extra clauses in pattern match for language " lang-symbol ': extra-clauses))))))
+
 (define-syntax match-language
   (lambda (stx)
-    (syntax-case stx ()
+    (syntax-case stx (->)
+      
+      ((_ (<language> -> <out-predicate>) <exp> . <rules>)
+       (match-language-verify (eval #'<language>) '<language> (map car (syntax->datum #'<rules>)))
+       #'(let ((result (match-language-aux <language> <exp> . <rules>)))
+           (unless (<out-predicate> result)
+             (error "Invalid data from pattern match, wanted" '<out-predicate> "got" result))
+           result))
+      
       ((_ <language> <exp> . <rules>)
-       (let* ((lang (eval #'<language>))
-              (missing-clauses (set-subtract lang (map car (syntax->datum #'<rules>))))
-              (extra-clauses (set-subtract (map car (syntax->datum #'<rules>)) lang)))
-         (if (not (null? missing-clauses))
-             (error "Missing clauses in pattern match for language " '<language> ': missing-clauses)
-             (when (not (null? extra-clauses))
-               (error "Extra clauses in pattern match for language " '<language> ': extra-clauses))))
-       #'(match-language-aux <language> <exp> . <rules>)))))
+       (match-language-verify (eval #'<language>) '<language> (map car (syntax->datum #'<rules>)))
+       #'(match-language-aux <language> <exp> . <rules>))
+      
+      )))
 
 (define-syntax match-language-aux
   (syntax-rules (=>)
