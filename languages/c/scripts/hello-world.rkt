@@ -1,0 +1,4 @@
+(include "stdio.h")
+
+(define (void main (int argc) ((* (* char)) argv))
+  (puts "Hello World"))

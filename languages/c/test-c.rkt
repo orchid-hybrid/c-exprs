@@ -1,7 +1,7 @@
 #lang racket
 
 (require rackunit)
-(require "../testing/testing.rkt")
+(require "../../testing/testing.rkt")
 
 (require "c.rkt")
 
@@ -64,4 +64,6 @@
 
 ")
   (check-output? (display-c-stmt '(set! (* hello) (+ 3 (& a))) 0) "*hello = 3 + &a;
-"))
+")
+  (check-output? (display-c-stmt `(g (f x) (f x)) 0) "g(f(x), f(x));\n")
+  )

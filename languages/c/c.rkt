@@ -1,6 +1,6 @@
 #lang racket
 
-(require "../tools/pattern-matcher.rkt")
+(require "../../tools/pattern-matcher.rkt")
 
 (provide c-decl c-decl?
          c-type c-type?
@@ -47,7 +47,8 @@
   (return `(return))
   (return-value `(return ,c-expr?))
   (break `(break))
-  (continue `(continue)))
+  (continue `(continue))
+  (procedure-call `(,symbol? ,c-expr? ...)))
 
 (define-language c-operator c-operator?
   (add `+) (sub `-) (mul `*) (div `/)
@@ -57,14 +58,28 @@
 (define-language c-expr c-expr?
   (var symbol?)
   (num number?)
+  (str string?)
   (op `(,c-operator? ,c-expr? ,c-expr?))
   (ref `(& ,symbol?))
-  (deref `(* ,c-expr?)))
+  (deref `(* ,c-expr?))
+  (procedure-call `(,symbol? ,c-expr? ...)))
 
 (define-language c-lvalue c-lvalue?
   (var symbol?)
   (deref `(* ,symbol?))
   (array-ref `(array-ref ,symbol? ,c-expr?)))
+
+;; Mangling
+
+(define (quoted-string s)
+  (let ((escape (lambda (khar)
+                  (case khar
+                    ((#\\) (list #\\ #\\))
+                    ((#\") (list #\\ #\"))
+                    (else (list khar))))))
+    (list->string (append (list #\")
+                          (flatten (map  escape (string->list s)))
+                          (list #\")))))
 
 ;; C language display functions
 
@@ -129,6 +144,8 @@
               (display s)))
     (num => (lambda (n)
               (display n)))
+    (str => (lambda (s)
+              (display (quoted-string s))))
     (op => (lambda (o p q)
              (display-c-expr p)
              (display " ")
@@ -140,8 +157,19 @@
                 (display e)))
     (deref => (lambda (e)
                 (display "*")
-                (display e)))))
+                (display e)))
+    (procedure-call => display-procedure-call)))
 
+(define (display-procedure-call f args)
+  (display f)
+  (display "(")
+  (for-each-between (lambda (param)
+                      (display-c-expr (first param)))
+                    (lambda ()
+                      (display ", "))
+                    args)
+  (display ")"))
+  
 (define (display-c-lvalue v)
   (match-language c-lvalue v
     (var => (lambda (v)
@@ -208,4 +236,7 @@
                 (newline)))
     (continue => (lambda ()
                    (display_ "continue;")
-                   (newline))))))
+                   (newline)))
+    (procedure-call => (lambda (f args)
+                         (display_ "") (display-procedure-call f args) (display ";")
+                         (newline))))))
