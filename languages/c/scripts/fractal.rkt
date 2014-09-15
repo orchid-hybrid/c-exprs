@@ -22,11 +22,10 @@
 
 (define (int julia ((struct complex) z) ((struct complex) c)  (int iterations))
   (while (> iterations 0)
-    (begin
       (set! z (complex-add (complex-multiply z z) c))
       (if (> (complex-modulus z) 2.0)
           (return 0)
-          (set! iterations (- iterations 1)))))
+          (set! iterations (- iterations 1))))
   (return 1))
 
 (define (void main (int argc) ((* (* char)) argv))
@@ -38,15 +37,13 @@
   (set! x 0)
   (set! y 0)
   (while (< y 20)
-    (begin
       (while (< x 60)
-        (begin
           (set! z (make-struct (struct complex) (real (/ (- x 30) 20.0)) (imag (/ (- y 10) 10.0))))
           (if (julia z c 1000)
               (printf "#")
               (printf "."))
-          (set! x (+ x 1))))
+          (set! x (+ x 1)))
       (puts "")
       (set! x 0)
-      (set! y (+ y 1)))))
+      (set! y (+ y 1))))
 
