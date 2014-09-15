@@ -38,7 +38,7 @@
         if (y) {
             break;
         } else {
-            while (1 + 2) {
+            while ((1 + 2)) {
                 while (i) {
                     do {
                         break;
@@ -63,7 +63,7 @@
 }
 
 ")
-  (check-output? (display-c-stmt '(set! (* hello) (+ 3 (& a))) 0) "*hello = 3 + &a;
+  (check-output? (display-c-stmt '(set! (* hello) (+ 3 (& a))) 0) "*hello = (3 + &a);
 ")
   (check-output? (display-c-stmt `(g (f x) (f x)) 0) "g(f(x), f(x));\n")
   )
