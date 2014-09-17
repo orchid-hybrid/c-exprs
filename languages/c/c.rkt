@@ -1,6 +1,6 @@
 #lang racket
 
-(require "../../tools/pattern-matcher.rkt")
+(require "../../../pattern-matcher/pattern-matcher.rkt")
 
 (provide c-decl c-decl?
          c-type c-type?
