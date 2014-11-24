@@ -1,24 +1,129 @@
-#lang racket
+;;(declare (unit c-expr))
+(module c-expr (display-c-program)
+(import chicken scheme)
 
-(require "../../../pattern-matcher/pattern-matcher.rkt")
+;;(require-extension syntax-case)
+;;(require-extension string-utils)
 
-(provide c-decl c-decl?
-         c-type c-type?
-         c-stmt c-stmt?
-         c-operator c-operator?
-         c-expr c-expr?
-         
-         display-c-decl
-         display-c-type
-         display-c-stmt
-         display-c-operator
-         display-c-expr)
+(define first car)
+(define second cadr)
+(define (flatten lists) (apply append lists))
+
+(define (any p l)
+  (if (null? l)
+      #f
+      (if (p (car l))
+          #t
+          (any p (cdr l)))))
+
+(define (pattern? p e)
+  ;; (display `(pattern? ',p ',e))(newline)
+  (cond ((null? p) (if (null? e) '() #f))
+        ((equal? p '_) (list e))
+        ((or (symbol? p)
+             (char? p)) (if (equal? p e) '() #f))
+        ((procedure? p) (if (p e) (list e) #f))
+        ((pair? p) (if (pair? e)
+                       (let ((lhs (pattern? (car p) (car e))))
+                         (if lhs 
+                             (if (equal? '(...) (cdr p))
+                                 (pattern* (car p) (cdr e) (list lhs))
+                                 (let ((rhs (pattern? (cdr p) (cdr e))))
+                                   (if rhs (append lhs rhs)
+                                       #f))) #f))
+                       (if (equal? '(...) (cdr p))
+                           (list '())
+                           #f)))
+        (else (error "bad pattern"))))
+
+(define (pattern* p e acc)
+  ;; (display `(pattern* ',p ',e ',acc))(newline)
+  (if (null? e)
+      (list (reverse acc))
+      (if (pair? e)
+          (let ((next (pattern? p (car e))))
+            (if next
+                (pattern* p (cdr e) (cons next acc))
+                #f))
+          #f)))
+
+(define (apply-list-to f) (lambda (l) (apply f l)))
+
+(define-syntax match
+  (syntax-rules (=> else)
+    ((match <exp> (<pattern> => <result>) ... (else <else>))
+     (cond ((pattern? <pattern> <exp>) => (apply-list-to <result>)) ... (else <else>)))
+    ((match <exp> (<pattern> => <result>) ...)
+     (cond ((pattern? <pattern> <exp>) => (apply-list-to <result>)) ...))))
+
+(define (language-pattern-names language) (map car language))
+(define (language-patterns language) (map cdr language))
+(define-syntax define-language
+  (syntax-rules ()
+    ((_ <language> <language?> (<name> <pattern>) ...)
+     (begin
+       (begin-for-syntax (define <language> `(<name> ...)))
+       (define (<language>) `((<name> ,<pattern>) ...))
+       (define (<language?> t)
+         (if (any (lambda (pattern) (pattern? pattern t)) `(,<pattern> ...))
+             #t #f))))))
+
+(begin-for-syntax
+  (define (match-language-verify lang lang-symbol pattern-names)
+    (let* ((missing-clauses (set-subtract lang pattern-names))
+           (extra-clauses (set-subtract pattern-names lang)))
+      (if (not (null? missing-clauses))
+          (error "Missing clauses in pattern match for language " lang-symbol ': missing-clauses)
+          (when (not (null? extra-clauses))
+            (error "Extra clauses in pattern match for language " lang-symbol ': extra-clauses))))))
+
+(define-syntax match-language
+  (syntax-rules (->)
+    
+    ((_ (<language> -> <out-predicate>) <exp> . <rules>)
+     ;;(match-language-verify (eval #'<language>) '<language> (map car (syntax->datum #'<rules>)))
+     (let ((result (match-language-aux <language> <exp> . <rules>)))
+       (unless (<out-predicate> result)
+         (error "Invalid data from pattern match, wanted" '<out-predicate> "got" result))
+       result))
+    
+    ((_ <language> <exp> . <rules>)
+     ;;(match-language-verify (eval #'<language>) '<language> (map car (syntax->datum #'<rules>)))
+     (match-language-aux <language> <exp> . <rules>))
+    
+    ))
+
+;; (define-syntax match-language
+;;   (lambda (stx)
+;;     (syntax-case stx (->)
+      
+;;       ((_ (<language> -> <out-predicate>) <exp> . <rules>)
+;;        (match-language-verify (eval #'<language>) '<language> (map car (syntax->datum #'<rules>)))
+;;        #'(let ((result (match-language-aux <language> <exp> . <rules>)))
+;;            (unless (<out-predicate> result)
+;;              (error "Invalid data from pattern match, wanted" '<out-predicate> "got" result))
+;;            result))
+      
+;;       ((_ <language> <exp> . <rules>)
+;;        (match-language-verify (eval #'<language>) '<language> (map car (syntax->datum #'<rules>)))
+;;        #'(match-language-aux <language> <exp> . <rules>))
+      
+;;       )))
+
+(define-syntax match-language-aux
+  (syntax-rules (=>)
+    ((_ <language> <exp> (<name> => <k>) ...)
+     (let ((e <exp>))
+       (match e
+         ((second (assoc '<name> (<language>))) => <k>) ...
+         (else (error "Pattern match failed for " '<language> "with" e)))))))
+
 
 ;; Useful links
 ;; * C syntax BNF: http://www.cs.man.ac.uk/~pjj/bnf/c_syntax.bnf
 
 (define tabstop 4)
-(define (spaces n) (build-string n (lambda (_) #\space)))
+(define (spaces n) (make-string n #\space))
 
 (define (inc n) (+ n 1))
 
@@ -28,17 +133,20 @@
   ;; unions etc.
   (include `(include ,string?))
   (struct `(struct ,symbol? (,c-type? ,symbol?) ...))
+  (union `(union ,symbol? (,c-type? ,symbol?) ...))
   (definition `(define (,c-type? ,symbol? (,c-type? ,symbol?) ...) ,c-stmt? ...)))
 
 (define-language c-type c-type?
   (pointer `(* ,c-type?))
   (struct `(struct ,symbol?))
+  (union `(union ,symbol?))
   (void `void)
   (char `char)
   (int `int)
   (long-long-int `long-long-int)
   (float `float)
-  (double `double))
+  (double `double)
+  (type `(type ,symbol?)))
 
 (define-language c-stmt c-stmt?
   (begin `(begin ,c-stmt? ...))
@@ -57,24 +165,33 @@
   (add `+) (sub `-) (mul `*) (div `/)
   (bit-and `&) (bit-or `\|) (bit-xor `^)
   (and `&&) (or `\|\|)
+  (equal `=)
   (less-than `<) (greater-than `>)
   (less-than-or-equal `<=) (greater-than-or-equal `>=))
 
 (define-language c-expr c-expr?
   (var symbol?)
   (num number?)
+  (char char?)
   (str string?)
   (op `(,c-operator? ,c-expr? ,c-expr?))
   (ref `(& ,symbol?))
   (deref `(* ,c-expr?))
   (make-struct `(make-struct (struct ,symbol?) (,symbol? ,c-expr?) ...))
-  (struct-ref `(struct-ref ,c-lvalue? ,c-expr?))
-  (procedure-call `(,symbol? ,c-expr? ...)))
+  (struct-ref `(struct-ref ,c-lvalue? ,symbol?))
+  (struct->ref `(struct->ref ,c-lvalue? ,symbol?))
+  (array-ref `(array-ref ,c-lvalue? ,c-expr?))
+  (sizeof `(sizeof ,c-type?))
+  ;;(? `(? ,c-expr? ,c-expr? ,c-expr?))
+  (procedure-call `(,symbol? ,c-expr? ...))
+  )
 
 (define-language c-lvalue c-lvalue?
   (var symbol?)
   (deref `(* ,c-lvalue?))
-  (array-ref `(array-ref ,symbol? ,c-expr?)))
+  (array-ref `(array-ref ,c-lvalue? ,c-expr?))
+  (struct-ref `(struct-ref ,c-lvalue? ,symbol?))
+  (struct->ref `(struct->ref ,c-lvalue? ,symbol?)))
 
 ;; Mangling
 
@@ -83,6 +200,7 @@
                   (case khar
                     ((#\\) (list #\\ #\\))
                     ((#\") (list #\\ #\"))
+                    ((#\newline) (list #\\ #\n))
                     (else (list khar))))))
     (list->string (append (list #\")
                           (flatten (map  escape (string->list s)))
@@ -92,6 +210,8 @@
   (let ((escape (lambda (khar)
                   (case khar
                     ((#\-) (string->list "_"))
+                    ((#\>) (string->list "_to"))
+                    ((#\*) (string->list "_star"))
                     ((#\_) (string->list "_underscore"))
                     ((#\?) (string->list "_question"))
                     (else (list khar)))))
@@ -116,6 +236,21 @@
                  (comma)
                  (for-each-between f comma (cdr list))))))
 
+(define (display-c-prototype d)
+  (match-language c-decl d
+    (include => (lambda (filename) #f))
+    (struct => (lambda (name fields) #f))
+    (union => (lambda (name fields) #f))
+    (definition => (lambda (ret-type name args body)
+                     (display-c-type ret-type) (display " ") (display-c-symbol name) (display "(")
+                     (for-each-between (lambda (sig)
+                                         (display-c-type (first sig)))
+                                       (lambda ()
+                                         (display ", "))
+                                       args)
+                     (display ");")
+                     (newline)))))
+
 (define (display-c-decl d)
   (match-language c-decl d
     (include => (lambda (filename)
@@ -125,6 +260,14 @@
                   (newline)))
     (struct => (lambda (name fields)
                  (display "struct ") (display-c-symbol name) (display " {") (newline)
+                 (for-each (lambda (field)
+                             (display (spaces tabstop))
+                             (display-c-type (first field)) (display " ")
+                             (display-c-symbol (second field)) (display ";") (newline))
+                           fields)
+                 (display "};") (newline)))
+    (union => (lambda (name fields)
+                 (display "union ") (display-c-symbol name) (display " {") (newline)
                  (for-each (lambda (field)
                              (display (spaces tabstop))
                              (display-c-type (first field)) (display " ")
@@ -150,11 +293,13 @@
     (void => (lambda () (display "void")))
     (pointer => (lambda (p) (display-c-type p) (display "*")))
     (struct => (lambda (n) (display "struct ") (display-c-symbol n)))
+    (union => (lambda (n) (display "union ") (display-c-symbol n)))
     (char => (lambda () (display "char")))
     (int => (lambda () (display "int")))
     (long-long-int => (lambda () (display "long long int")))
     (float => (lambda () (display "float")))
     (double => (lambda () (display "double")))
+    (type => (lambda (t) (display-c-symbol t)))
     ))
 
 (define (display-c-operator o)
@@ -169,7 +314,8 @@
     (bit-xor => (lambda () (display "^")))
     (and => (lambda () (display "&&")))
     (or => (lambda () (display "||")))
-    
+
+    (equal => (lambda () (display "==")))
     (less-than => (lambda () (display "<")))
     (greater-than => (lambda () (display ">")))
     (less-than-or-equal => (lambda () (display "<=")))
@@ -182,6 +328,8 @@
               (display-c-symbol s)))
     (num => (lambda (n)
               (display n)))
+    (char => (lambda (n)
+               (display "'") (display n) (display "'")))
     (str => (lambda (s)
               (display (quoted-string s))))
     (op => (lambda (o p q)
@@ -197,7 +345,7 @@
                 (display e)))
     (deref => (lambda (e)
                 (display "*")
-                (display e)))
+                (display-c-expr e)))
     (make-struct => (lambda (name fields)
                       (display "(struct ") (display-c-symbol name) (display "){ ")
                       (for-each-between (lambda (field-value)
@@ -207,8 +355,34 @@
                                         fields)
                       (display " }")))
     (struct-ref => (lambda (lval field)
-                     (display-c-lvalue lval) (display ".") (display-c-expr field)))
-    (procedure-call => display-procedure-call)))
+                     (display-c-lvalue lval) (display ".") (display-c-symbol field)))
+    (struct->ref => (lambda (lval field)
+                     (display-c-lvalue lval) (display "->") (display-c-symbol field)))
+    (array-ref => (lambda (a i)
+                    (display-c-lvalue a)
+                    (display "[")
+                    (display-c-expr i)
+                    (display "]")))
+    (sizeof => (lambda (t)
+                 (display "sizeof(")
+                 (display-c-type t)
+                 (display ")")))
+    ;; (? => (lambda (pred then else)
+    ;;         (display "(")
+    ;;         (display "(")
+    ;;         (display-c-expr pred)
+    ;;         (display ")")
+    ;;         (display "?")
+    ;;         (display "(")
+    ;;         (display-c-expr then)
+    ;;         (display ")")
+    ;;         (display ":")
+    ;;         (display "(")
+    ;;         (display-c-expr else)
+    ;;         (display ")")
+    ;;         (display ")")))
+    (procedure-call => display-procedure-call)
+    ))
 
 (define (display-procedure-call f args)
   (display-c-symbol f)
@@ -228,10 +402,15 @@
                 (display "*")
                 (display-c-lvalue v)))
     (array-ref => (lambda (a i)
-                    (display-c-symbol a)
+                    (display-c-lvalue a)
                     (display "[")
                     (display-c-expr i)
-                    (display "]")))))
+                    (display "]")))
+    (struct-ref => (lambda (lval field)
+                     (display-c-lvalue lval) (display ".") (display-c-symbol field)))
+    (struct->ref => (lambda (lval field)
+                     (display-c-lvalue lval) (display "->") (display-c-symbol field)))
+    ))
 
 (define (display-c-stmt s i)
   (let ((display_ (lambda (s)
@@ -294,3 +473,13 @@
     (procedure-call => (lambda (f args)
                          (display_ "") (display-procedure-call f args) (display ";")
                          (newline))))))
+
+(define (display-c-program prototypes program-code)
+  (when prototypes
+    (for-each display-c-prototype program-code)
+    (newline))
+  (for-each display-c-decl program-code))
+
+;; (let ((contents (read-file "ctest/fractal.cexpr")))
+;;   (for-each display-c-decl contents))
+)

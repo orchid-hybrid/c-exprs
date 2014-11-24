@@ -1,6 +1,4 @@
-all:
-	echo "nothing to do"
+all: cexpr
 
-test:
-	raco test testing/testing.rkt
-	raco test languages/c/test-c.rkt
+cexpr:
+	csc -prologue c-expr.scm run-c-expr.scm -o cexpr
