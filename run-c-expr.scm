@@ -1,7 +1,10 @@
-(module main ()
-(import chicken scheme)
-(use extras c-expr)
+(use extras)
+(include "c-expr.scm")
 
-(map (lambda (f) (display-c-program #f (read-file f))) (command-line-arguments))
+(module main ()
+  (import chicken scheme extras)
+  (import c-expr)
+
+(map (lambda (f) (display-c-program #t (read-file f))) (command-line-arguments))
 
 )

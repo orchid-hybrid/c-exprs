@@ -134,7 +134,8 @@
   (include `(include ,string?))
   (struct `(struct ,symbol? (,c-type? ,symbol?) ...))
   (union `(union ,symbol? (,c-type? ,symbol?) ...))
-  (definition `(define (,c-type? ,symbol? (,c-type? ,symbol?) ...) ,c-stmt? ...)))
+  (definition `(define (,c-type? ,symbol? (,c-type? ,symbol?) ...) ,c-stmt? ...))
+  )
 
 (define-language c-type c-type?
   (pointer `(* ,c-type?))
@@ -214,13 +215,18 @@
                     ((#\*) (string->list "_star"))
                     ((#\_) (string->list "_underscore"))
                     ((#\?) (string->list "_question"))
+                    ((#\!) (string->list "_bang"))
                     (else (list khar)))))
         (escape-keywords (lambda (l)
                            (cond ((pattern? `(#\c #\h #\a #\r) l) (append (list #\s #\y #\m #\_ ) l))
                                  ((pattern? `(#\s #\y #\m ,char? ...) l) (append (list #\s #\y #\m #\_ #\s #\y #\m)
                                                                                  (cdddr l)))
-                                 (else l)))))
-    (list->string (escape-keywords (flatten (map escape (string->list (symbol->string sym))))))))
+                                 (else l))))
+        (fixup (lambda (s)
+                 (if (equal? "_bang" s)
+                     "!"
+                     s))))
+    (fixup (list->string (escape-keywords (flatten (map escape (string->list (symbol->string sym)))))))))
 
 ;; C language display functions
 
@@ -474,11 +480,32 @@
                          (display_ "") (display-procedure-call f args) (display ";")
                          (newline))))))
 
+(define (is-include p)
+  (and (list? p)
+       (= 2 (length p))
+       (eq? 'include (car p))))
+
+(define (take-while p l)
+  (if (null? l)
+      '()
+      (if (p (car l))
+          (cons (car l)
+                (take-while p (cdr l)))
+          '())))
+
+(define (drop-while p l)
+  (if (null? l)
+      '()
+      (if (p (car l))
+          (drop-while p (cdr l))
+          l)))
+
 (define (display-c-program prototypes program-code)
+  (for-each display-c-decl (take-while is-include program-code))
   (when prototypes
     (for-each display-c-prototype program-code)
     (newline))
-  (for-each display-c-decl program-code))
+  (for-each display-c-decl (drop-while is-include program-code)))
 
 ;; (let ((contents (read-file "ctest/fractal.cexpr")))
 ;;   (for-each display-c-decl contents))
